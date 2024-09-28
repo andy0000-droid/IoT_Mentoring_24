@@ -10,22 +10,6 @@
  */
 #include <stdio.h>
 
-void ByteSub();
-
-void ShiftRow();
-
-void MixCol();
-
-void AddRK();
-
-int main(void)
-{
-    while(1)
-    {
-
-    }
-}
-
 void ByteSub()
 {
 
@@ -44,4 +28,12 @@ void MixCol()
 void AddRK()
 {
 
+}
+
+int main(void)
+{
+    while(1)
+    {
+
+    }
 }
