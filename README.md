@@ -1,6 +1,6 @@
 # ioT_Mentoring_24
 2024-2 Semester
-# Specification
+# Specification for IoT device
 ## Core
 ARM 32-bits Coretex $^{TM}$-M4 CPU
 ## Memeory
