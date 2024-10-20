@@ -31,7 +31,7 @@ u8 x4time(u8 a) {
 }
 
 int main() {
-    u8 a = 0x3b;
+    u8 a = 0x2a;
     u8 t1 = 0, t2 = 0;
     t1 = (a & 0xf0) >> 4;
     t2 = (a & 0x0f);
