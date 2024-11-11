@@ -42,7 +42,7 @@ u8 mul(u8 a, u8 b) {
 
 
 int main() {
-    u8 a = 0x11;
+    u8 a = 0xab;
     printf("a: 0x%02x\n", a);
     for(int i = 0; i < 256; i++) {
         if(mul(a, i) == 1) {

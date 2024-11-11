@@ -127,7 +127,7 @@ u8 invmul_1(u8 a) {
     }
     printf("invd: 0x%02x\n", invd);
     u8 q = mul(invd, bpc);
-    u8 p = mul(invd, xtime(b));
+    u8 p = mul(invd, b);
     printf("p: 0x%02x, q: 0x%02x\n", p, q);
     return ((p << 4) ^ q);
 }
