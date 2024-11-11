@@ -134,5 +134,7 @@ u8 invmul_1(u8 a) {
 
 int main() {
     u8 a = 0xab;
-    printf("(0x%02x)^-1: 0x%02x\n", a, invmul_1(a));
+    u8 res = invmul_1(a);
+    printf("(0x%02x)^-1: 0x%02x\n", a, res);
+    printf("0x%02x * 0x%02x: 0x%02x\n", a, res, mul(a, res));
 }
