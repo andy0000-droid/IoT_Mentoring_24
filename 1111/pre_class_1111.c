@@ -104,19 +104,19 @@ u8 invmul_1(u8 a) {
     u8 b = (a & 0xf0) >> 4;
     u8 c = a & 0x0f;
     printf("b: 0x%02x, c: 0x%02x\n", b, c);
-    const u8 B = 1;
+    const u8 B = 0x01;
 
     u8 b2 = squaring(b);
     printf("b2: 0x%02x\n", b2);
-    u8 bB = mul(b2, B);
-    printf("bB: 0x%02x\n", bB);
+    u8 b2B = mul(b2, B);
+    printf("b2B: 0x%02x\n", b2B);
     u8 c2 = squaring(c);
     printf("c2: 0x%02x\n", c2);
     u8 bmc = mul(b, c);
     printf("bmc: 0x%02x\n", bmc);
     u8 bpc = b ^ c;
     printf("bpc: 0x%02x\n", bpc);
-    u8 d = bB ^ bmc ^ c2;
+    u8 d = b2B ^ bmc ^ c2;
     printf("d: 0x%02x\n", d);
     u8 invd = 0;
     for(int i = 1; i < 16; i++) {
@@ -127,23 +127,12 @@ u8 invmul_1(u8 a) {
     }
     printf("invd: 0x%02x\n", invd);
     u8 q = mul(invd, bpc);
-    u8 p = mul(invd, b);
+    u8 p = mul(invd, xtime(b));
     printf("p: 0x%02x, q: 0x%02x\n", p, q);
     return ((p << 4) ^ q);
 }
 
 int main() {
-    
-    printf("RESULT: 0x%02x\n", invmul_1(0xab));
-    // t1 = x^2 * B
-    // t2 = b * c
-    // t3 = c^2
-    // t4 = t1 ^ t2 ^ t3
-    // t5 = b ^ c
-    // t6 = t4 ^ (-1)
-    // t7 = b * t6
-    // t8 = t6 ^ t5
-    // t7 = p, t8 = q
-
-    
+    u8 a = 0xab;
+    printf("(0x%02x)^-1: 0x%02x\n", a, invmul_1(a));
 }
