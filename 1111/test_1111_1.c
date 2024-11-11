@@ -11,7 +11,6 @@ typedef unsigned char u8;
 #define x6time(A) (xtime(x5time(A))) //0x40
 #define x7time(A) (xtime(x6time(A))) //0x80
 
-
 u8 mul(u8 a, u8 b) {
     u8 res = 0;
     if (b & 0x01) {
@@ -41,6 +40,15 @@ u8 mul(u8 a, u8 b) {
     return res;
 }
 
+
 int main() {
-    printf("0x%02x\n", mul(0xcd, 0xfc));
+    u8 a = 0x11;
+    printf("a: 0x%02x\n", a);
+    for(int i = 0; i < 256; i++) {
+        if(mul(a, i) == 1) {
+            printf("a^-1: 0x%02x", i);
+            //break;
+        }
+    }
+    return 0;
 }
