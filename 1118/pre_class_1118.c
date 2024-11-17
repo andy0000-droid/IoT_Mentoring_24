@@ -2,11 +2,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef unsigned char u8;
-
-uint8_t buffer_rx[256];
-uint8_t buffer_index = 0;
-uint8_t RK[176] = {0,};
+// typedef unsigned char u8;
+#define MUL2(a) (a<<1)^(a&0x80?0x1b:0)
+#define MUL3(a) (MUL2(a))^(a)
 
 uint8_t Sbox[256] = {
 0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -26,34 +24,32 @@ uint8_t Sbox[256] = {
 0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
 0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16 };
 
+uint32_t Te0[256];
+uint32_t Te1[256];
+uint32_t Te2[256];
+uint32_t Te3[256];
+
 uint32_t u4byte_in(uint8_t* x) { //32비트로 리턴
 	return (x[0] << 24) | (x[1] << 16) | (x[2] << 8) | x[3];  //x[0]||x[1]||x[2]||x[3]
 }
 
-uint8_t Rcons[10] = { 0x01,0x02,0x04,0x08, 0x10,0x20,0x40,0x80, 0x1b,0x36 };
-
-void RotWord(uint8_t x[4])
-{
-    uint8_t tmp;
-    
-    tmp=x[0];
-    x[0] = x[1];
-    x[1] = x[2];
-    x[2] = x[3];
-    x[3] = tmp;
-}
-	
-void SubWord(uint8_t x[4])
-{
-    x[0] = Sbox[x[0]];
-    x[1] = Sbox[x[1]];
-    x[2] = Sbox[x[2]];
-    x[3] = Sbox[x[3]];
+void u4byte_out(uint8_t *x, uint32_t y) {
+    x[0] = (y >> 24) & 0xff;
+    x[0] = (y >> 16) & 0xff;
+    x[0] = (y >> 8) & 0xff;
+    x[3] = y & 0xff;
 }
 
-/*
-void RoundKeyGeneration128(uint8_t MK[16], uint8_t RK[176]) {
-    uint32_t W[44];
+uint32_t Rcons[10] = { 0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000, 0x1b000000, 0x36000000 };
+
+#define RotWord(x) ((x << 8) | (x >> 24))
+
+uint32_t SubWord(uint32_t x)
+{
+    return (((uint32_t)(Sbox[(uint8_t)(x >> 24)]) << 24) | ((uint32_t)(Sbox[(uint8_t)((x >> 16) & 0xff)]) << 16) | ((uint32_t)(Sbox[(uint8_t)((x >> 8) & 0xff)]) << 8) | ((uint32_t)(Sbox[(uint8_t)(x & 0xff)])));
+}
+
+void RoundKeyGeneration128(uint8_t MK[], uint32_t W[]) {
 	int32_t i;
 	uint32_t T;
 
@@ -69,25 +65,14 @@ void RoundKeyGeneration128(uint8_t MK[16], uint8_t RK[176]) {
 		T = SubWord(T);
 		T ^= Rcons[i];
 
-    RK[16*i+16] = RK[16*i]^T[0];
-    RK[16*i+17] = RK[16*i+1]^T[1];
-    RK[16*i+18] = RK[16*i+2]^T[2];
-    RK[16*i+19] = RK[16*i+3]^T[3];
-    RK[16*i+20] = RK[16*i+4]^RK[16*i+16];
-    RK[16*i+21] = RK[16*i+5]^RK[16*i+17];
-    RK[16*i+22] = RK[16*i+6]^RK[16*i+18];
-    RK[16*i+23] = RK[16*i+7]^RK[16*i+19];
-    RK[16*i+24] = RK[16*i+8]^RK[16*i+20] ;
-    RK[16*i+25] = RK[16*i+9]^RK[16*i+21];
-    RK[16*i+26] = RK[16*i+10]^RK[16*i+22];
-    RK[16*i+27] = RK[16*i+11]^RK[16*i+23];
-    RK[16*i+28] = RK[16*i+12]^RK[16*i+24];
-    RK[16*i+29] = RK[16*i+13]^RK[16*i+25];
-    RK[16*i+30] = RK[16*i+14]^RK[16*i+26];
-    RK[16*i+31] = RK[16*i+15]^RK[16*i+27];
+        W[4 * i + 4] = W[4 * i] ^ T;
+        W[4 * i + 5] = W[4 * i + 1] ^ W[4 * i + 4];
+        W[4 * i + 6] = W[4 * i + 2] ^ W[4 * i + 5];
+        W[4 * i + 7] = W[4 * i + 3] ^ W[4 * i + 6];
 	}
 }
-*/
+
+/*
 void AddRoundKey(uint8_t S[16], uint8_t RK[16]) {
 	S[0] ^= RK[0]; S[1] ^= RK[1]; S[2] ^= RK[2]; S[3] ^= RK[3];
 	S[4] ^= RK[4]; S[5] ^= RK[5]; S[6] ^= RK[6]; S[7] ^= RK[7];
@@ -101,6 +86,7 @@ void SubBytes(uint8_t S[16]) {
 	S[8] = Sbox[S[8]]; S[9] = Sbox[S[9]]; S[10] = Sbox[S[10]]; S[11] = Sbox[S[11]];
 	S[12] = Sbox[S[12]]; S[13] = Sbox[S[13]]; S[14] = Sbox[S[14]]; S[15] = Sbox[S[15]];
 }
+
 void ShiftRows(uint8_t S[16]) {
 	uint8_t temp;
 	temp = S[1];
@@ -129,126 +115,9 @@ void MixColumns(uint8_t S[16]) {
 	S[12] = temp[12]; S[13] = temp[13]; S[14] = temp[14]; S[15] = temp[15];
 
 }
-
-void AES_ENC(uint8_t PT[16], uint8_t RK[], uint8_t CT[16]) {
-	int Nr = 10; //라운드 수 설정
-	int i;
-	uint8_t temp[16];
-
-	for (i = 0; i < 16; i++) temp[i] = PT[i];
-
-	AddRoundKey(temp, RK); //temp의 16byte와 RK의 첫 16byte를 XOR하여 temp에 결과를 담는 함수
-	for (i = 0; i < Nr - 1; i++) {
-		SubBytes(temp);
-		ShiftRows(temp);
-		MixColumns(temp);
-		AddRoundKey(temp, RK + 16 * (i + 1));
-    
-	}
-	SubBytes(temp);
-	ShiftRows(temp);
-	AddRoundKey(temp, RK + 16 * (i + 1));
-
-	for (i = 0; i < 16; i++) CT[i] = temp[i];
-}
-
-uint8_t strToHex(char ch)
-{
-    uint8_t result;
-    switch(ch)
-    {
-    case '0': result=0; break;
-    case '1': result=1; break;
-    case '2': result=2; break;
-    case '3': result=3; break;
-    case '4': result=4; break;
-    case '5': result=5; break;
-    case '6': result=6; break;
-    case '7': result=7; break;
-    case '8': result=8; break;
-    case '9': result=9; break;
-    case 'a': result=10; break;
-    case 'b': result=11; break;
-    case 'c': result=12; break;
-    case 'd': result=13; break;
-    case 'e': result=14; break;
-    case 'f': result=15; break;
-    case 'A': result=10; break;
-    case 'B': result=11; break;
-    case 'C': result=12; break;
-    case 'D': result=13; break;
-    case 'E': result=14; break;
-    case 'F': result=15; break;
-    default: result=0; break;
-    }
-    return result;
-    }
-/*
-int main() {
-    uint8_t input[16] = {0, };
-    uint8_t output[16] = {0, };
-    uint8_t MK[16] = { 0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef, 0x12,0x34,0x56,0x78,0x9a,0xbc,0xde,0xf0 };
-    uint8_t PT[16] = { 0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77, 0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff };
-    char ioc[8];
-    int i = 0;
-    // put your main code here, to run repeatedly:
-    
-    for(uint8_t p=0; p<16; p++)
-    {
-    input[p] = (strToHex(buffer_rx[2*p])<<4)^(strToHex(buffer_rx[2*p+1]));
-    }
-    RoundKeyGeneration128(MK, RK);
-    AES_ENC(input, RK, output);
-    for(i=0; i<16; i++){
-        sprintf(ioc, "0x%02X ", output[i]);
-        printf(ioc);
-    }
-}
 */
 
-int main() {
-    uint8_t arrtemp[4] = {0, };
-    uint32_t Te0[256] = {0, };
-    uint32_t Te1[256] = {0, };
-    uint32_t Te2[256] = {0, };
-    uint32_t Te3[256] = {0, };
-
-    for(int i = 0; i < 256; i++) {
-        u8 temp = Sbox[i];
-        arrtemp[0] = (u8)MUL2(temp);
-        arrtemp[1] = temp;
-        arrtemp[2] = temp;
-        arrtemp[3] = (u8)MUL3(temp);
-        Te0[i] = u4byte_in(arrtemp);
-    }
-
-    for(int i = 0; i < 256; i++) {
-        u8 temp = Sbox[i];
-        arrtemp[0] = (u8)MUL3(temp);
-        arrtemp[1] = (u8)MUL2(temp);
-        arrtemp[2] = temp;
-        arrtemp[3] = temp;
-        Te1[i] = u4byte_in(arrtemp);
-    }
-
-    for(int i = 0; i < 256; i++) {
-        u8 temp = Sbox[i];
-        arrtemp[0] = temp;
-        arrtemp[1] = (u8)MUL3(temp);
-        arrtemp[2] = (u8)MUL2(temp);
-        arrtemp[3] = temp;
-        Te2[i] = u4byte_in(arrtemp);
-    }
-
-    for(int i = 0; i < 256; i++) {
-        u8 temp = Sbox[i];
-        arrtemp[0] = temp;
-        arrtemp[1] = temp;
-        arrtemp[2] = (u8)MUL3(temp);
-        arrtemp[3] = (u8)MUL2(temp);
-        Te3[i] = u4byte_in(arrtemp);
-    }
-
+void print_te_table() {
     printf("u32 Te0[256]={\n");
     for(int i = 0; i < 256; i++) {
         printf("0x%08x, ", Te0[i]);
@@ -276,5 +145,214 @@ int main() {
         if(i % 8 == 7) printf("\n");
     }
     printf("}\n");
+}
+
+void AES_ENC(uint8_t PT[16], uint32_t W[], uint8_t CT[16], int keysize) {
+	int Nr = keysize / 32 + 6; //라운드 수 설정
+	int i;
+	uint32_t s0, s1, s2, s3, t0, t1, t2, t3;
+
+    print_te_table();
+    for (int i = 0; i < 16; i++) printf("0x%02x, ", PT[i]);
+    printf("\n");
+
+	s0 = u4byte_in(PT) ^ W[0];
+    s1 = u4byte_in(PT + 4) ^ W[1];
+    s2 = u4byte_in(PT + 8) ^ W[2];
+    s3 = u4byte_in(PT + 12) ^ W[3];
+
+    // 1 round
+    t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4];
+    t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[5];
+    t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[6];
+    t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[7];
+
+    // 2 round
+    s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[8];
+    s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[9];
+    s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[10];
+    s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[11];
+
+    // 3 round
+    t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[12];
+    t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[13];
+    t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[14];
+    t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[15];
+
+    // 4 round
+    s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[16];
+    s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[17];
+    s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[18];
+    s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[19];
+
+    // 5 round
+    t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[20];
+    t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[21];
+    t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[22];
+    t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[23];
+
+    // 6 round
+    s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[24];
+    s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[25];
+    s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[26];
+    s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[27];
+
+    // 7 round
+    t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[28];
+    t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[29];
+    t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[30];
+    t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[31];
+
+    // 8 round
+    s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[32];
+    s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[33];
+    s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[34];
+    s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[35];
     
+    if(Nr == 10) {
+        // 9 round
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[36];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[37];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[38];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[39];
+
+        // 10 round
+        s0 = (Te2[t0 >> 24] & 0xff000000) ^ (Te3[(t1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t3 & 0xff] ^ 0x000000ff) ^ W[40];
+        s1 = (Te2[t1 >> 24] & 0xff000000) ^ (Te3[(t2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t0 & 0xff] ^ 0x000000ff) ^ W[41];
+        s2 = (Te2[t2 >> 24] & 0xff000000) ^ (Te3[(t3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t1 & 0xff] ^ 0x000000ff) ^ W[42];
+        s3 = (Te2[t3 >> 24] & 0xff000000) ^ (Te3[(t0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t2 & 0xff] ^ 0x000000ff) ^ W[43];
+    }/*
+    else if(Nr == 12) {
+        // 9 round
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[36];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[37];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[38];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[39];
+
+        // 10 round
+        s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[40];
+        s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[41];
+        s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[42];
+        s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[43];
+
+        // 11 round
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[44];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[45];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[46];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[47];
+
+        // 12 round
+        s0 = (Te2[t0 >> 24] & 0xff000000) ^ (Te3[(t1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t3 & 0xff] ^ 0x000000ff) ^ W[48];
+        s1 = (Te2[t1 >> 24] & 0xff000000) ^ (Te3[(t2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t0 & 0xff] ^ 0x000000ff) ^ W[49];
+        s2 = (Te2[t2 >> 24] & 0xff000000) ^ (Te3[(t3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t1 & 0xff] ^ 0x000000ff) ^ W[50];
+        s3 = (Te2[t3 >> 24] & 0xff000000) ^ (Te3[(t0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t2 & 0xff] ^ 0x000000ff) ^ W[51];
+    }
+    else if(Nr == 14) {
+        // 9 round
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[36];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[37];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[38];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[39];
+
+        // 10 round
+        s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[40];
+        s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[41];
+        s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[42];
+        s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[43];
+
+        // 11 round
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[44];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[45];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[46];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[47];
+
+        // 12 round
+        s0 = Te0[t0 >> 24] ^ Te1[(t1 >> 16) & 0xff] ^ Te2[(t2 >> 8) & 0xff] ^ Te3[t3 & 0xff] ^ W[48];
+        s1 = Te0[t1 >> 24] ^ Te1[(t2 >> 16) & 0xff] ^ Te2[(t3 >> 8) & 0xff] ^ Te3[t0 & 0xff] ^ W[49];
+        s2 = Te0[t2 >> 24] ^ Te1[(t3 >> 16) & 0xff] ^ Te2[(t0 >> 8) & 0xff] ^ Te3[t1 & 0xff] ^ W[50];
+        s3 = Te0[t3 >> 24] ^ Te1[(t0 >> 16) & 0xff] ^ Te2[(t1 >> 8) & 0xff] ^ Te3[t2 & 0xff] ^ W[51];
+
+        // 13 round
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[52];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[53];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[54];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[55];
+
+        // 14 round
+        s0 = (Te2[t0 >> 24] & 0xff000000) ^ (Te3[(t1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t3 & 0xff] ^ 0x000000ff) ^ W[56];
+        s1 = (Te2[t1 >> 24] & 0xff000000) ^ (Te3[(t2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t0 & 0xff] ^ 0x000000ff) ^ W[57];
+        s2 = (Te2[t2 >> 24] & 0xff000000) ^ (Te3[(t3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t1 & 0xff] ^ 0x000000ff) ^ W[58];
+        s3 = (Te2[t3 >> 24] & 0xff000000) ^ (Te3[(t0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t2 & 0xff] ^ 0x000000ff) ^ W[59];
+    }*/
+    u4byte_out(CT, s0);
+    u4byte_out(CT + 4, s1);
+    u4byte_out(CT + 8, s2);
+    u4byte_out(CT + 12, s3);
+    for (int i = 0; i < 16; i++) printf("0x%02x, ", CT[i]);
+    printf("\n");
+}
+
+int main() {
+    uint8_t arrtemp[4] = {0, };
+    uint32_t W[60] = {0x00, };
+    //Master key 2b7e151628aed2a6abf7158809cf4f3c
+    uint8_t MK[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
+    //Plain Text 6bc1bee22e409f96e93d7e117393172a
+    uint8_t PT[16] = { 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a};
+    uint8_t CT[16] = {0x00, };
+    //Cipher Text 3ad77bb40d7a3660a89ecaf32466ef97
+    uint8_t TCT[16] = {0x3a, 0xd7, 0x7b, 0xb4, 0x0d, 0x7a, 0x36, 0x60, 0xa8, 0x9e, 0xca, 0xf3, 0x24, 0x66, 0xef, 0x97};
+    int keysize = 128;
+
+    for(int i = 0; i < 256; i++) {
+        uint8_t temp = Sbox[i];
+        arrtemp[0] = (uint8_t)MUL2(temp);
+        arrtemp[1] = temp;
+        arrtemp[2] = temp;
+        arrtemp[3] = (uint8_t)MUL3(temp);
+        Te0[i] = u4byte_in(arrtemp);
+    }
+
+    for(int i = 0; i < 256; i++) {
+        uint8_t temp = Sbox[i];
+        arrtemp[0] = (uint8_t)MUL3(temp);
+        arrtemp[1] = (uint8_t)MUL2(temp);
+        arrtemp[2] = temp;
+        arrtemp[3] = temp;
+        Te1[i] = u4byte_in(arrtemp);
+    }
+
+    for(int i = 0; i < 256; i++) {
+        uint8_t temp = Sbox[i];
+        arrtemp[0] = temp;
+        arrtemp[1] = (uint8_t)MUL3(temp);
+        arrtemp[2] = (uint8_t)MUL2(temp);
+        arrtemp[3] = temp;
+        Te2[i] = u4byte_in(arrtemp);
+    }
+
+    for(int i = 0; i < 256; i++) {
+        uint8_t temp = Sbox[i];
+        arrtemp[0] = temp;
+        arrtemp[1] = temp;
+        arrtemp[2] = (uint8_t)MUL3(temp);
+        arrtemp[3] = (uint8_t)MUL2(temp);
+        Te3[i] = u4byte_in(arrtemp);
+    }
+
+    //print_te_table();
+
+    RoundKeyGeneration128(MK, W);
+    AES_ENC(PT, W, CT, keysize);
+    printf("Plain Text: \n");
+    for (int i = 0; i < 16; i++) printf("0x%02x, ", PT[i]);
+    printf("\n");
+    printf("Matster Key: \n");
+    for (int i = 0; i < 16; i++) printf("0x%02x, ", MK[i]);
+    printf("\n");
+    printf("Cipher Text: \n");
+    for (int i = 0; i < 16; i++) printf("0x%02x, ", CT[i]);
+    printf("\n");
+    printf("Test Cipher Text: \n");
+    for (int i = 0; i < 16; i++) printf("0x%02x, ", TCT[i]);
 }
