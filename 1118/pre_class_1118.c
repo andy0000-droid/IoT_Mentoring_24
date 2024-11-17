@@ -30,7 +30,7 @@ uint32_t Te2[256];
 uint32_t Te3[256];
 
 uint32_t u4byte_in(uint8_t* x) { //32비트로 리턴
-	return (x[0] << 24) | (x[1] << 16) | (x[2] << 8) | x[3];  //x[0]||x[1]||x[2]||x[3]
+	return (((uint32_t)x[0] << 24) | ((uint32_t)x[1] << 16) | ((uint32_t)x[2] << 8) | (uint32_t)x[3]);  //x[0]||x[1]||x[2]||x[3]
 }
 
 void u4byte_out(uint8_t *x, uint32_t y) {
@@ -147,31 +147,31 @@ void print_te_table() {
     printf("}\n");
 }
 
-void AES_ENC(uint8_t PT[16], uint32_t W[], uint8_t CT[16], int keysize) {
+void AES_ENC(uint8_t PT[16], uint32_t W[60], uint8_t CT[16], int keysize) {
 	int Nr = (keysize / 32) + 6; //라운드 수 설정
 	int i;
 	uint32_t s0, s1, s2, s3, t0, t1, t2, t3;
 
-    print_te_table();
-    for (int i = 0; i < 16; i++) printf("0x%02x, ", PT[i]);
-    printf("\n");
+    //print_te_table();
 
 	s0 = u4byte_in(PT) ^ W[0];
     s1 = u4byte_in(PT + 4) ^ W[1];
     s2 = u4byte_in(PT + 8) ^ W[2];
     s3 = u4byte_in(PT + 12) ^ W[3];
-
-    for (int i = 0; i < Nr - 1; i++) {
-        s0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4 * i + 4];
-        s1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[4 * i + 5];
-        s2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[4 * i + 6];
-        s3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[4 * i + 7];
+    /*
+    for (int i = 1; i < Nr - 1; i++) {
+        t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4 * i];
+        t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[4 * i + 1];
+        t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[4 * i + 2];
+        t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[4 * i + 3];
+        s0 = t0; s1 = t1; s2 = t2; s3 = t3;
     }
     s0 = (Te2[s0 >> 24] & 0xff000000) ^ (Te3[(s1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s3 & 0xff] ^ 0x000000ff) ^ W[4 * Nr];
     s1 = (Te2[s1 >> 24] & 0xff000000) ^ (Te3[(s2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s0 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 1];
     s2 = (Te2[s2 >> 24] & 0xff000000) ^ (Te3[(s3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s1 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 2];
     s3 = (Te2[s3 >> 24] & 0xff000000) ^ (Te3[(s0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s2 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 3];
-    /*
+    */
+    
     // 1 round
     t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4];
     t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[5];
@@ -295,13 +295,11 @@ void AES_ENC(uint8_t PT[16], uint32_t W[], uint8_t CT[16], int keysize) {
         s2 = (Te2[t2 >> 24] & 0xff000000) ^ (Te3[(t3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t1 & 0xff] ^ 0x000000ff) ^ W[58];
         s3 = (Te2[t3 >> 24] & 0xff000000) ^ (Te3[(t0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t2 & 0xff] ^ 0x000000ff) ^ W[59];
     }
-    */
+    
     u4byte_out(CT, s0);
     u4byte_out(CT + 4, s1);
     u4byte_out(CT + 8, s2);
     u4byte_out(CT + 12, s3);
-    for (int i = 0; i < 16; i++) printf("0x%02x, ", CT[i]);
-    printf("\n");
 }
 
 int main() {
