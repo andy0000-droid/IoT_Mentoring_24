@@ -153,7 +153,8 @@ void AES_ENC(uint8_t PT[16], uint32_t W[60], uint8_t CT[16], int keysize) {
 	uint32_t s0, s1, s2, s3, t0, t1, t2, t3;
 
     //print_te_table();
-
+    for (int i = 0; i < 60; i++) printf("0x%02x, ", W[i]);
+    printf("\n");
 	s0 = u4byte_in(PT) ^ W[0];
     s1 = u4byte_in(PT + 4) ^ W[1];
     s2 = u4byte_in(PT + 8) ^ W[2];
@@ -295,7 +296,7 @@ void AES_ENC(uint8_t PT[16], uint32_t W[60], uint8_t CT[16], int keysize) {
         s2 = (Te2[t2 >> 24] & 0xff000000) ^ (Te3[(t3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t1 & 0xff] ^ 0x000000ff) ^ W[58];
         s3 = (Te2[t3 >> 24] & 0xff000000) ^ (Te3[(t0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t2 & 0xff] ^ 0x000000ff) ^ W[59];
     }
-    
+
     u4byte_out(CT, s0);
     u4byte_out(CT + 4, s1);
     u4byte_out(CT + 8, s2);
