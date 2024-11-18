@@ -117,6 +117,17 @@ void MixColumns(uint8_t S[16]) {
 }
 */
 
+void print_round_keys(uint32_t W[], int num_rounds) {
+    printf("Round Keys:\n");
+    for (int i = 0; i <= num_rounds; i++) {
+        printf("Round %02d: ", i);
+        for (int j = 0; j < 4; j++) {
+            printf("0x%08x ", W[4 * i + j]);
+        }
+        printf("\n");
+    }
+}
+
 void print_te_table() {
     printf("u32 Te0[256]={\n");
     for(int i = 0; i < 256; i++) {
@@ -151,27 +162,60 @@ void AES_ENC(uint8_t PT[16], uint32_t W[60], uint8_t CT[16], int keysize) {
 	int Nr = (keysize / 32) + 6; //라운드 수 설정
 	int i;
 	uint32_t s0, s1, s2, s3, t0, t1, t2, t3;
-
-    //print_te_table();
-    for (int i = 0; i < 60; i++) printf("0x%02x, ", W[i]);
-    printf("\n");
 	s0 = u4byte_in(PT) ^ W[0];
     s1 = u4byte_in(PT + 4) ^ W[1];
     s2 = u4byte_in(PT + 8) ^ W[2];
     s3 = u4byte_in(PT + 12) ^ W[3];
+
+    for (i = 1; i < Nr; i++) {
+    t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4 * i];
+    t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[4 * i + 1];
+    t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[4 * i + 2];
+    t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[4 * i + 3];
+    s0 = t0;
+    s1 = t1;
+    s2 = t2;
+    s3 = t3;
+
+    // 디버그 출력
+    printf("After Round %d: %08x %08x %08x %08x\n", i, s0, s1, s2, s3);
+    }
     /*
-    for (int i = 1; i < Nr - 1; i++) {
+    // 마지막 라운드
+    t0 = (Te2[s0 >> 24] & 0xff000000) ^ (Te3[(s1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s3 & 0xff] & 0x000000ff) ^ W[4 * Nr];
+    t1 = (Te2[s1 >> 24] & 0xff000000) ^ (Te3[(s2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s0 & 0xff] & 0x000000ff) ^ W[4 * Nr + 1];
+    t2 = (Te2[s2 >> 24] & 0xff000000) ^ (Te3[(s3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s1 & 0xff] & 0x000000ff) ^ W[4 * Nr + 2];
+    t3 = (Te2[s3 >> 24] & 0xff000000) ^ (Te3[(s0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s2 & 0xff] & 0x000000ff) ^ W[4 * Nr + 3];
+    */
+    // 마지막 라운드
+    t0 = (Sbox[s0 >> 24] << 24) ^ (Sbox[(s1 >> 16) & 0xff] << 16) ^
+         (Sbox[(s2 >> 8) & 0xff] << 8) ^ Sbox[s3 & 0xff] ^ W[4 * Nr];
+    t1 = (Sbox[s1 >> 24] << 24) ^ (Sbox[(s2 >> 16) & 0xff] << 16) ^
+         (Sbox[(s3 >> 8) & 0xff] << 8) ^ Sbox[s0 & 0xff] ^ W[4 * Nr + 1];
+    t2 = (Sbox[s2 >> 24] << 24) ^ (Sbox[(s3 >> 16) & 0xff] << 16) ^
+         (Sbox[(s0 >> 8) & 0xff] << 8) ^ Sbox[s1 & 0xff] ^ W[4 * Nr + 2];
+    t3 = (Sbox[s3 >> 24] << 24) ^ (Sbox[(s0 >> 16) & 0xff] << 16) ^
+         (Sbox[(s1 >> 8) & 0xff] << 8) ^ Sbox[s2 & 0xff] ^ W[4 * Nr + 3];
+    u4byte_out(CT, t0);
+    u4byte_out(CT + 4, t1);
+    u4byte_out(CT + 8, t2);
+    u4byte_out(CT + 12, t3);
+
+    /*
+    for (int i = 1; i < Nr; i++) {
         t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4 * i];
         t1 = Te0[s1 >> 24] ^ Te1[(s2 >> 16) & 0xff] ^ Te2[(s3 >> 8) & 0xff] ^ Te3[s0 & 0xff] ^ W[4 * i + 1];
         t2 = Te0[s2 >> 24] ^ Te1[(s3 >> 16) & 0xff] ^ Te2[(s0 >> 8) & 0xff] ^ Te3[s1 & 0xff] ^ W[4 * i + 2];
         t3 = Te0[s3 >> 24] ^ Te1[(s0 >> 16) & 0xff] ^ Te2[(s1 >> 8) & 0xff] ^ Te3[s2 & 0xff] ^ W[4 * i + 3];
         s0 = t0; s1 = t1; s2 = t2; s3 = t3;
     }
-    s0 = (Te2[s0 >> 24] & 0xff000000) ^ (Te3[(s1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s3 & 0xff] ^ 0x000000ff) ^ W[4 * Nr];
-    s1 = (Te2[s1 >> 24] & 0xff000000) ^ (Te3[(s2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s0 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 1];
-    s2 = (Te2[s2 >> 24] & 0xff000000) ^ (Te3[(s3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s1 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 2];
-    s3 = (Te2[s3 >> 24] & 0xff000000) ^ (Te3[(s0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s2 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 3];
+    t0 = (Te2[s0 >> 24] & 0xff000000) ^ (Te3[(s1 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s2 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s3 & 0xff] ^ 0x000000ff) ^ W[4 * Nr];
+    t1 = (Te2[s1 >> 24] & 0xff000000) ^ (Te3[(s2 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s3 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s0 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 1];
+    t2 = (Te2[s2 >> 24] & 0xff000000) ^ (Te3[(s3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s1 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 2];
+    t3 = (Te2[s3 >> 24] & 0xff000000) ^ (Te3[(s0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(s1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[s2 & 0xff] ^ 0x000000ff) ^ W[4 * Nr + 3];
+    s0 = t0; s1 = t1; s2 = t2; s3 = t3;
     */
+    /*
     
     // 1 round
     t0 = Te0[s0 >> 24] ^ Te1[(s1 >> 16) & 0xff] ^ Te2[(s2 >> 8) & 0xff] ^ Te3[s3 & 0xff] ^ W[4];
@@ -296,11 +340,13 @@ void AES_ENC(uint8_t PT[16], uint32_t W[60], uint8_t CT[16], int keysize) {
         s2 = (Te2[t2 >> 24] & 0xff000000) ^ (Te3[(t3 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t0 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t1 & 0xff] ^ 0x000000ff) ^ W[58];
         s3 = (Te2[t3 >> 24] & 0xff000000) ^ (Te3[(t0 >> 16) & 0xff] & 0x00ff0000) ^ (Te0[(t1 >> 8) & 0xff] & 0x0000ff00) ^ (Te1[t2 & 0xff] ^ 0x000000ff) ^ W[59];
     }
-
+    */
+    /*
     u4byte_out(CT, s0);
     u4byte_out(CT + 4, s1);
     u4byte_out(CT + 8, s2);
     u4byte_out(CT + 12, s3);
+    */
 }
 
 int main() {
@@ -354,6 +400,7 @@ int main() {
     //print_te_table();
 
     RoundKeyGeneration128(MK, W);
+    print_round_keys(W, 10); // 128비트 키는 10라운드
     AES_ENC(PT, W, CT, keysize);
     printf("Plain Text: \n");
     for (int i = 0; i < 16; i++) printf("0x%02x, ", PT[i]);
