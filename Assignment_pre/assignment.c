@@ -17,6 +17,14 @@
  * 
  */
 
+/**
+ * Left to Right Exponentiation
+ * 1. convert exponent(decimal or hex) to binary
+ * 2. if exponent is 1, then result * base
+ * 3. basically perform squaring of base
+ * 4. return result when exponent end
+ */
+
 
 
 #include <stdio.h>
@@ -54,7 +62,24 @@ void x2(BYTE *in, BYTE *res, int size) {
     }
 }
 
-void mul(BYTE *a, BYTE *b, BYTE *res) {
+void add(BYTE *a, BYTE *b, BYTE *res, int size) {
+    for (int i = 0; i < size; i++) {
+        res[i] = a[i] ^ b[i];
+    }
+}
+
+void mul(BYTE *a, BYTE *b, BYTE *res, int size) {
+    for (int i = 1; i <= size; i++) {
+        for (int j = 0; j < byte; j ++) {
+            if (b[size - i] & (0x01 << j)) {
+                for (; j > 0; j--) {
+                    printf("xtime\n");
+                    x2(a, res, size);
+                }
+                add(a, res, res, size);
+            }
+    }
+    }
     
 }
 
@@ -62,14 +87,27 @@ void sq(BYTE *in, BYTE *res) {
 
 }
 
+void print_res(BYTE *res, int size) {
+    for (int i = 0; i < size; i++) {
+            printf("0x%02x ", res[i]);
+        }
+    printf("\n");
+}
 
 int main() {
     BYTE base[16] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}; //16 bytes with big endian
+    BYTE test[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02}; //16 bytes with big endian
     BYTE exp[2] = {0x0a, 0xed}; //2 bytes
     BYTE res[16] = {0x00, };
+    
     int size = sizeof(base) / sizeof(char);
-    //x2(base, res, size);
-    /*for (int i = 0; i < size; i++) {
-        printf("0x%02x ", res[i]);
-    }*/
+
+    //BYTE base1[16] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}; //16 bytes with big endian
+    // add(base, base1, res, size);
+    // x2(base, res, size);
+    mul(base, test, res, size);
+    
+    print_res(res, size);
+    
+    
 }
