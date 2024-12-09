@@ -1,5 +1,13 @@
-/*
-For GF(2^8)
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <memory.h>
+
+typedef unsigned char BYTE;
+
+// For GF(2^8)
+
 #define xtime(A) ((A << 1) ^ ((A & 0x80) ? 0x1b : 0)) //0x02
 #define x2time(A) (xtime(xtime(A))) //0x04
 #define x3time(A) (xtime(x2time(A))) //0x08
@@ -51,4 +59,11 @@ BYTE squaring(BYTE a) {
     printf("Squaring Result : %02x\n", res);
     return res;
 }
-*/
+
+int main() {
+    BYTE a = 0xaa;
+    BYTE b = 0xbb;
+    BYTE res = 0x00;
+    res = mul(a, b);
+    printf("0x%02x", res);
+}
